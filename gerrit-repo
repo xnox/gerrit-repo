@@ -1,0 +1,87 @@
+#!/usr/bin/python3
+
+# Generate repo config for all gerrit projects
+#
+# Copyright (C) 2014 Intel Corporation. All rights reserved.
+#
+# Author: Dimitri John Ledkov <dimitri.j.ledkov@intel.com>
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in
+#     the documentation and/or other materials provided with the
+#     distribution.
+#   * Neither the name of Intel Corporation nor the names of its
+#     contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import json
+import argparse
+from xml.dom import minidom
+from xml.etree import ElementTree as et
+
+class GerritRepo():
+    def __init__(self, url='', json=None, output=None, name=None):
+        if not output:
+            output = 'default.xml'
+        self.url = url
+        self.json = json
+        self.output = output
+        if not name:
+            name = 'origin'
+        self.name = name
+
+    def generate(self):
+        content = ''
+        with open(self.json) as fp:
+            content = fp.read()[5:]
+        parsed_json = json.loads(content)
+
+        root = et.Element('manifest')
+
+        et.SubElement(root, 'remote', attrib={'name':self.name, 'fetch':self.url})
+        et.SubElement(root, 'default', attrib={'revision':'master', 'remote':self.name})
+
+        sorted_keys = sorted(list(parsed_json.keys()))
+        for key in sorted_keys:
+            et.SubElement(root, 'project', attrib={'name':key, 'path':key})
+
+        xmlstring = et.tostring(root, encoding='unicode')
+        xmlstring = minidom.parseString(xmlstring).toprettyxml(encoding='utf-8')
+        with open(self.output, 'wb') as fp:
+            fp.write(xmlstring)
+            
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', '--baseurl', help='Gerrit instance url')
+    parser.add_argument('-j', '--json', help='Downloaded json projects file')
+    parser.add_argument('-o', '--output', help='Repo xml config output')
+    parser.add_argument('-n', '--name', help='Default name')
+    args = parser.parse_args()
+
+    if not args.baseurl:
+        raise ValueError('Missing baseurl: Please provide gerrit URL, e.g.:\n http://review.example.com/gerrit')
+    
+    if not args.json:
+        raise ValueError('Missing json: You can download json of all projects from:\n %s/projects/?d' % args.baseurl)
+   
+    gerrit = GerritRepo(url=args.baseurl, json=args.json, output=args.output, name=args.name)
+    gerrit.generate()

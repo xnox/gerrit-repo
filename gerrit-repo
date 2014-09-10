@@ -62,9 +62,11 @@ class GerritRepo():
 
         sorted_keys = sorted(list(parsed_json.keys()))
         for key in sorted_keys:
+            path = key
             if self.strip:
                 path = '/'.join(key.split('/')[self.strip:])
-            et.SubElement(root, 'project', attrib={'name':key, 'path':path})
+            if key and path:
+                et.SubElement(root, 'project', attrib={'name':key, 'path':path})
 
         xmlstring = et.tostring(root, encoding='unicode')
         xmlstring = minidom.parseString(xmlstring).toprettyxml(encoding='utf-8')

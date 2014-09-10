@@ -38,12 +38,13 @@ from xml.dom import minidom
 from xml.etree import ElementTree as et
 
 class GerritRepo():
-    def __init__(self, url='', json=None, output=None, name=None):
+    def __init__(self, url='', json=None, output=None, name=None, strip=0):
         if not output:
             output = 'default.xml'
         self.url = url
         self.json = json
         self.output = output
+        self.strip = strip
         if not name:
             name = 'origin'
         self.name = name
@@ -61,7 +62,9 @@ class GerritRepo():
 
         sorted_keys = sorted(list(parsed_json.keys()))
         for key in sorted_keys:
-            et.SubElement(root, 'project', attrib={'name':key, 'path':key})
+            if self.strip:
+                path = '/'.join(key.split('/')[self.strip:])
+            et.SubElement(root, 'project', attrib={'name':key, 'path':path})
 
         xmlstring = et.tostring(root, encoding='unicode')
         xmlstring = minidom.parseString(xmlstring).toprettyxml(encoding='utf-8')
@@ -71,10 +74,11 @@ class GerritRepo():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-u', '--baseurl', help='Gerrit instance url')
-    parser.add_argument('-j', '--json', help='Downloaded json projects file')
+    parser.add_argument('-u', '--baseurl', help='Gerrit instance url', required=True)
+    parser.add_argument('-j', '--json', help='Downloaded json projects file', required=True)
     parser.add_argument('-o', '--output', help='Repo xml config output')
     parser.add_argument('-n', '--name', help='Default name')
+    parser.add_argument('-s', '--strip', help='Strip prefix', type=int)
     args = parser.parse_args()
 
     if not args.baseurl:
@@ -83,5 +87,5 @@ if __name__ == '__main__':
     if not args.json:
         raise ValueError('Missing json: You can download json of all projects from:\n %s/projects/?d' % args.baseurl)
    
-    gerrit = GerritRepo(url=args.baseurl, json=args.json, output=args.output, name=args.name)
+    gerrit = GerritRepo(url=args.baseurl, json=args.json, output=args.output, name=args.name, strip=args.strip)
     gerrit.generate()
